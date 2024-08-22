@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Define the Movie model
+model Movie {
+  id             Int      @id @default(autoincrement())
+  slug           String   @unique
+  title          String
+  description    String?
+  image_url      String?
+  author         String?
+  published_date String?
+  modified_date  String?
+  views          Int?
+  video_urls     String[]
+  download_urls  Json?
+  director       String?
+  duration       String?
+
+  // Many-to-many relationships
+  categories Category[] @relation("MovieCategories")
+  tags       Tag[]      @relation("MovieTags")
+}
+
+// Define the Category model
+model Category {
+  id     Int     @id @default(autoincrement())
+  name   String  @unique
+  movies Movie[] @relation("MovieCategories")
+
+  @@index([name], name: "category_name_index")
+}
+
+// Define the Tag model
+model Tag {
+  id     Int     @id @default(autoincrement())
+  name   String  @unique
+  movies Movie[] @relation("MovieTags")
+
+  @@index([name], name: "tag_name_index")
+}
