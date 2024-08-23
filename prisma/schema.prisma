@@ -27,6 +27,24 @@ model Movie {
   // Many-to-many relationships
   categories Category[] @relation("MovieCategories")
   tags       Tag[]      @relation("MovieTags")
+  // Explanation of many-to-many relationships:
+  // 
+  // These lines define many-to-many relationships between the Movie model
+  // and the Category and Tag models.
+  //
+  // For categories:
+  // - A Movie can have multiple Categories
+  // - A Category can be associated with multiple Movies
+  // The @relation("MovieCategories") specifies the name of this relationship
+  //
+  // For tags:
+  // - A Movie can have multiple Tags
+  // - A Tag can be associated with multiple Movies
+  // The @relation("MovieTags") specifies the name of this relationship
+  //
+  // Prisma automatically creates join tables to manage these relationships,
+  // allowing efficient querying and data management without explicitly
+  // defining the intermediate tables in the schema.
 }
 
 // Define the Category model
@@ -45,4 +63,29 @@ model Tag {
   movies Movie[] @relation("MovieTags")
 
   @@index([name], name: "tag_name_index")
+}
+
+// create new scheme for the movie, no relations
+
+model MovieScrape {
+  id             Int      @id @default(autoincrement())
+  slug           String   @unique
+  title          String
+  image_url      String
+  author         String
+  published_date String
+  modified_date  String
+  views          Int
+  video_urls     String[]
+  download_urls  Json?
+  director       String
+  duration       String
+  categories     String[]
+  tags           String[]
+}
+
+model MovieLinks {
+  id        Int     @id @default(autoincrement())
+  url       String  @unique
+  isScraped Boolean @default(false)
 }

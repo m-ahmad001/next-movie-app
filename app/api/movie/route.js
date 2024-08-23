@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import redis from "@/lib/redis";
 import { faker } from "@faker-js/faker";
 import { NextResponse } from "next/server";
+import useSWR from "swr";
 
 export async function POST(request) {
   try {
@@ -12,9 +13,21 @@ export async function POST(request) {
     if (!url) {
       return NextResponse.json({ error: "URL is required" }, { status: 400 });
     }
+    console.time("Scraping time");
+    const isAlreadyScraped = await prisma.movie.findUnique({
+      where: { slug: url.split("/").slice(-2, -1)[0] },
+    });
 
+    if (isAlreadyScraped) {
+      return NextResponse.json(
+        { error: "Movie already scraped" },
+        { status: 400 }
+      );
+    }
+
+    console.time("Scraping time");
     const movieData = await scrapeMovieData(url);
-
+    console.timeEnd("Scraping time");
     if (!movieData) {
       return NextResponse.json(
         { error: "Failed to scrape data" },
@@ -22,7 +35,9 @@ export async function POST(request) {
       );
     }
 
+    console.time("Saving time");
     await saveMovieData(movieData);
+    console.timeEnd("Saving time");
 
     return NextResponse.json(
       { message: "Movie data saved successfully" },
@@ -34,14 +49,9 @@ export async function POST(request) {
   }
 }
 
-export async function GET(request) {
+export async function GET() {
   try {
-    const movies = await prisma.movie.findMany({
-      include: {
-        categories: true,
-        tags: true,
-      },
-    });
+    const movies = await prisma.movie.findMany();
     return NextResponse.json(movies);
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
