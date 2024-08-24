@@ -8,7 +8,7 @@ import useSWR from "swr";
 
 export async function GET() {
   try {
-    const movies = await prisma.movie.findMany();
+    const movies = await prisma.movie.count();
     return NextResponse.json(movies);
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
