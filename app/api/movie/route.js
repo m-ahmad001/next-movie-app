@@ -6,49 +6,6 @@ import { faker } from "@faker-js/faker";
 import { NextResponse } from "next/server";
 import useSWR from "swr";
 
-export async function POST(request) {
-  try {
-    const { url } = await request.json();
-
-    if (!url) {
-      return NextResponse.json({ error: "URL is required" }, { status: 400 });
-    }
-    console.time("Scraping time");
-    const isAlreadyScraped = await prisma.movie.findUnique({
-      where: { slug: url.split("/").slice(-2, -1)[0] },
-    });
-
-    if (isAlreadyScraped) {
-      return NextResponse.json(
-        { error: "Movie already scraped" },
-        { status: 400 }
-      );
-    }
-
-    console.time("Scraping time");
-    const movieData = await scrapeMovieData(url);
-    console.timeEnd("Scraping time");
-    if (!movieData) {
-      return NextResponse.json(
-        { error: "Failed to scrape data" },
-        { status: 500 }
-      );
-    }
-
-    console.time("Saving time");
-    await saveMovieData(movieData);
-    console.timeEnd("Saving time");
-
-    return NextResponse.json(
-      { message: "Movie data saved successfully" },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error("Error in POST request:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
 export async function GET() {
   try {
     const movies = await prisma.movie.findMany();
@@ -57,6 +14,98 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export async function POST(request) {
+  try {
+    // Get the first 40 movies that are not scraped and automate this process to get 40 Link and sacrape and save
+
+    const movies = await prisma.movieLinks.findMany({
+      take: 40,
+      where: { isScraped: false },
+      orderBy: { id: "desc" },
+    });
+
+    if (movies.length === 0) {
+      return NextResponse.json(
+        { message: "No new movies to scrape" },
+        { status: 200 }
+      );
+    }
+
+    const results = await Promise.all(
+      movies.map(async (movie) => {
+        try {
+          const slug = movie.url.split("/").slice(-2, -1)[0];
+          const isAlreadyScraped = await prisma.movie.findUnique({
+            where: { slug },
+          });
+
+          if (isAlreadyScraped) {
+            await prisma.movieLinks.update({
+              where: { id: movie.id },
+              data: { isScraped: true },
+            });
+            return {
+              status: "skipped",
+              message: "Movie already scraped",
+              url: movie.url,
+            };
+          }
+
+          const movieData = await scrapeMovieData(movie.url);
+          if (!movieData) {
+            return {
+              status: "failed",
+              message: "Failed to scrape data",
+              url: movie.url,
+            };
+          }
+
+          await saveMovieData(movieData);
+          await prisma.movieLinks.update({
+            where: { id: movie.id },
+            data: { isScraped: true },
+          });
+
+          return {
+            status: "success",
+            message: "Movie data saved successfully",
+            url: movie.url,
+          };
+        } catch (error) {
+          console.error(`Error processing movie ${movie.url}:`, error);
+          return { status: "error", message: error.message, url: movie.url };
+        }
+      })
+    );
+
+    const summary = results.reduce((acc, result) => {
+      acc[result.status] = (acc[result.status] || 0) + 1;
+      return acc;
+    }, {});
+
+    // If there are more movies to scrape, trigger another scraping process after a 5-second delay
+    if (results.length === 40) {
+      setTimeout(async () => {
+        await POST(request); // Re-trigger the POST function
+      }, 7000);
+    }
+
+    return NextResponse.json({
+      message: "Movie scraping process completed",
+      summary,
+      details: results,
+      continueScraping: results.length === 40,
+    });
+  } catch (error) {
+    console.error("Error in POST request:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
 // Functions
 async function scrapeMovieData(url) {
   try {
