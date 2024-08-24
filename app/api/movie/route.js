@@ -6,10 +6,20 @@ import { faker } from "@faker-js/faker";
 import { NextResponse } from "next/server";
 import useSWR from "swr";
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const movies = await prisma.movie.count();
-    return NextResponse.json(movies);
+    // add pagination to get movies, 20 at a time,count get from query
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page")) || 1;
+    const perPage = parseInt(searchParams.get("perPage")) || 20;
+    const count = await prisma.movie.count();
+    const totalPages = Math.ceil(count / perPage);
+
+    const movies = await prisma.movie.findMany({
+      skip: (page - 1) * perPage,
+      take: perPage,
+    });
+    return NextResponse.json({ movies, totalPages, count });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -17,8 +27,6 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    // Get the first 40 movies that are not scraped and automate this process to get 40 Link and sacrape and save
-
     const movies = await prisma.movieLinks.findMany({
       take: 40,
       where: { isScraped: false },
