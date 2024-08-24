@@ -1,10 +1,7 @@
+import prisma from "@/lib/prisma";
 import axios from "axios";
 import * as cheerio from "cheerio";
-import prisma from "@/lib/prisma";
-import redis from "@/lib/redis";
-import { faker } from "@faker-js/faker";
 import { NextResponse } from "next/server";
-import useSWR from "swr";
 
 export async function GET(request) {
   try {
