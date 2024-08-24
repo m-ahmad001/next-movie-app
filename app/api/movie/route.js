@@ -5,7 +5,6 @@ import { NextResponse } from "next/server";
 
 export async function GET(request) {
   try {
-    // add pagination to get movies, 20 at a time,count get from query
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page")) || 1;
     const perPage = parseInt(searchParams.get("perPage")) || 20;
